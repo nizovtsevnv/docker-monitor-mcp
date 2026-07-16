@@ -1,0 +1,43 @@
+version: "3.8"
+
+# Docker Swarm example. Clients on the same overlay reach the service by its
+# Swarm DNS name: http://docker-monitor-mcp:8080/mcp
+#
+# Notes:
+#   * No external ingress — the perimeter is the overlay network. There is no
+#     end-user authentication (the MVP is read-only).
+#   * Host metrics require the host's /proc and / to be bind-mounted read-only.
+#   * Pin `placement` to the node whose docker/host you want to observe. A Swarm
+#     service sees only the docker socket / procfs of the node it runs on.
+services:
+  docker-monitor-mcp:
+    image: ghcr.io/nizovtsevnv/docker-monitor-mcp:latest
+    environment:
+      BIND_ADDR: "0.0.0.0:8080"
+      HOST_PROC: "/host/proc"
+      HOST_ROOTFS: "/host/rootfs"
+      RUST_LOG: "info"
+    networks:
+      - monitor_net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /:/host/rootfs:ro
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          # Replace with the hostname of the node you want to observe.
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+networks:
+  # A private, attachable overlay. Attach your MCP clients to the same network
+  # (e.g. declare it `external: true` in their stack) so DNS resolution works.
+  monitor_net:
+    driver: overlay
+    attachable: true

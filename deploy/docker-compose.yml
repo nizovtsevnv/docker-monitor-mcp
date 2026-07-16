@@ -1,0 +1,21 @@
+# Single-host example (docker compose up).
+# Read-only mounts: docker socket + host /proc + host / (rootfs) — see docs/SPEC.md.
+services:
+  docker-monitor-mcp:
+    image: ghcr.io/nizovtsevnv/docker-monitor-mcp:latest
+    # Or build locally instead of pulling:
+    # build: ..
+    environment:
+      BIND_ADDR: "0.0.0.0:8080"
+      HOST_PROC: "/host/proc"
+      HOST_ROOTFS: "/host/rootfs"
+      RUST_LOG: "info"
+    ports:
+      # Expose only if you want host access; inside a compose network other
+      # services reach it as http://docker-monitor-mcp:8080/mcp without this.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /:/host/rootfs:ro
+    restart: unless-stopped

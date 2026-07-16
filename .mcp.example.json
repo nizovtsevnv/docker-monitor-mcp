@@ -1,0 +1,9 @@
+{
+  "$comment": "docker-monitor-mcp speaks MCP over Streamable HTTP. Point your MCP client at the /mcp endpoint. Inside a Docker/Swarm network use the service DNS name; locally use 127.0.0.1. Copy to .mcp.json (git-ignored) if you keep a local one.",
+  "mcpServers": {
+    "docker-monitor": {
+      "type": "http",
+      "url": "http://docker-monitor-mcp:8080/mcp"
+    }
+  }
+}

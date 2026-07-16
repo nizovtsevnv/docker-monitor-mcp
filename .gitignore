@@ -1,0 +1,10 @@
+/target
+/result
+/result-*
+.direnv/
+.envrc.local
+.env
+.mcp.json
+*.swp
+*.swo
+*~
