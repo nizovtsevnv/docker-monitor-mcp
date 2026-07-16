@@ -10,6 +10,8 @@ services:
       HOST_PROC: "/host/proc"
       HOST_ROOTFS: "/host/rootfs"
       RUST_LOG: "info"
+      # Optional: require `Authorization: Bearer <token>` on the MCP endpoints.
+      # AUTH_TOKEN: "change-me"
     ports:
       # Expose only if you want host access; inside a compose network other
       # services reach it as http://docker-monitor-mcp:8080/mcp without this.

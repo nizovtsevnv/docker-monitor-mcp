@@ -18,6 +18,9 @@ pub struct Config {
     /// Host filesystem root for disk statvfs
     /// (default `/`; in a container — `/host/rootfs`).
     pub rootfs_path: String,
+    /// Optional bearer token. `None` (env unset or empty) disables auth.
+    /// When set, MCP endpoints require `Authorization: Bearer <token>`.
+    pub auth_token: Option<String>,
 }
 
 impl Config {
@@ -29,6 +32,7 @@ impl Config {
                 .unwrap_or_else(|_| "/var/run/docker.sock".into()),
             proc_path: env::var("HOST_PROC").unwrap_or_else(|_| "/proc".into()),
             rootfs_path: env::var("HOST_ROOTFS").unwrap_or_else(|_| "/".into()),
+            auth_token: env::var("AUTH_TOKEN").ok().filter(|t| !t.is_empty()),
         }
     }
 }

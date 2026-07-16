@@ -88,6 +88,9 @@ See [`.mcp.example.json`](.mcp.example.json).
 
 ```bash
 claude mcp add --transport http docker-monitor http://docker-monitor-mcp:8080/mcp
+# with auth enabled (server started with AUTH_TOKEN):
+claude mcp add --transport http docker-monitor http://docker-monitor-mcp:8080/mcp \
+  --header "Authorization: Bearer <token>"
 ```
 
 Use the Docker/Swarm service DNS name when the client runs in the same network
@@ -104,6 +107,7 @@ All via environment variables (defaults target a local run):
 | `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker socket (mounted ro) |
 | `HOST_PROC` | `/proc` | procfs root (container: `/host/proc`) |
 | `HOST_ROOTFS` | `/` | host FS root for statvfs (container: `/host/rootfs`) |
+| `AUTH_TOKEN` | — (off) | optional bearer token; when set, MCP endpoints require `Authorization: Bearer <token>` |
 | `RUST_LOG` | `info` | log level (stderr) |
 
 See [`docs/SPEC.md §4`](docs/SPEC.md#4-configuration-environment-variables) for
@@ -112,9 +116,12 @@ details, including host-namespace handling.
 ## Security
 
 - **Read-only, but broad.** The server exposes logs and metrics for **every
-  container on the node it runs on**, plus host metrics. There is **no
-  authentication** — the perimeter is the network. Do not expose the endpoint to
-  untrusted networks; keep it on a private overlay.
+  container on the node it runs on**, plus host metrics. Keep it on a private
+  overlay; do not expose the endpoint to untrusted networks.
+- **Authentication is optional and off by default.** Set `AUTH_TOKEN` to require
+  `Authorization: Bearer <token>` on the MCP endpoints (`/mcp`, `/`); `/health`
+  stays open for Docker HEALTHCHECK. The token is compared in constant time.
+  With `AUTH_TOKEN` unset the perimeter is the network alone.
 - Mounts (`docker.sock`, `/proc`, `/`) are all `:ro`.
 - A Swarm service only sees the node it is scheduled on — pin `placement`.
 

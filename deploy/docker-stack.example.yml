@@ -17,6 +17,9 @@ services:
       HOST_PROC: "/host/proc"
       HOST_ROOTFS: "/host/rootfs"
       RUST_LOG: "info"
+      # Optional: require `Authorization: Bearer <token>` on the MCP endpoints.
+      # Prefer a Docker secret / external env over a literal here.
+      # AUTH_TOKEN: "change-me"
     networks:
       - monitor_net
     volumes:

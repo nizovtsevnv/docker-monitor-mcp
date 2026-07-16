@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -43,8 +43,51 @@ async fn health() -> impl IntoResponse {
     (StatusCode::OK, "ok")
 }
 
+/// Constant-time byte comparison, so the token is not leaked via timing.
+fn ct_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+/// Checks the `Authorization` header against the configured bearer token.
+/// `expected = None` means auth is disabled → always authorized.
+fn authorized(expected: Option<&str>, header: Option<&str>) -> bool {
+    let expected = match expected {
+        None => return true,
+        Some(t) => t,
+    };
+    let token = match header.and_then(|h| {
+        h.strip_prefix("Bearer ")
+            .or_else(|| h.strip_prefix("bearer "))
+    }) {
+        Some(t) => t.trim(),
+        None => return false,
+    };
+    ct_eq(token.as_bytes(), expected.as_bytes())
+}
+
 /// Single Streamable HTTP entry point.
-async fn mcp_handler(State(state): State<SharedState>, body: Bytes) -> Response {
+async fn mcp_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let provided = headers.get("authorization").and_then(|v| v.to_str().ok());
+    if !authorized(state.config.auth_token.as_deref(), provided) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            [("WWW-Authenticate", "Bearer")],
+            "Unauthorized",
+        )
+            .into_response();
+    }
+
     let parsed: Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(_) => {
@@ -343,5 +386,23 @@ mod tests {
         assert_eq!(e["id"], 7);
         assert_eq!(e["error"]["code"], -32601);
         assert_eq!(e["error"]["message"], "nope");
+    }
+
+    #[test]
+    fn auth_disabled_allows_everything() {
+        assert!(authorized(None, None));
+        assert!(authorized(None, Some("anything")));
+        assert!(authorized(None, Some("Bearer whatever")));
+    }
+
+    #[test]
+    fn auth_enabled_requires_matching_bearer() {
+        assert!(authorized(Some("s3cret"), Some("Bearer s3cret")));
+        assert!(authorized(Some("s3cret"), Some("bearer s3cret")));
+        assert!(!authorized(Some("s3cret"), Some("Bearer wrong")));
+        assert!(!authorized(Some("s3cret"), None));
+        assert!(!authorized(Some("s3cret"), Some("s3cret"))); // scheme missing
+        assert!(!authorized(Some("s3cret"), Some("Basic s3cret")));
+        assert!(!authorized(Some("s3cret"), Some("Bearer "))); // empty token
     }
 }

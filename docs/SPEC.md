@@ -38,6 +38,12 @@ A successful `tools/call` returns:
 A tool execution failure is returned as `isError: true` with the reason in
 `content[0].text` (not as a JSON-RPC error) so the agent can see the cause.
 
+**Authentication (optional).** If `AUTH_TOKEN` is set, `POST /` and `POST /mcp`
+require the header `Authorization: Bearer <AUTH_TOKEN>`; a missing or wrong token
+yields `401` with `WWW-Authenticate: Bearer`. The token is compared in constant
+time. `GET /health` is always open (for Docker HEALTHCHECK). With `AUTH_TOKEN`
+unset (default) no authentication is performed and the perimeter is the network.
+
 ## 3. Tools
 
 ### 3.1 `docker_logs`
@@ -145,6 +151,7 @@ Result (`structuredContent`):
 | `DOCKER_SOCKET` | `/var/run/docker.sock`  | Docker socket path (mounted ro) |
 | `HOST_PROC`     | `/proc`                 | procfs root (in a container — `/host/proc`) |
 | `HOST_ROOTFS`   | `/`                     | Host filesystem root for statvfs (in a container — `/host/rootfs`) |
+| `AUTH_TOKEN`    | — (unset → auth off)    | Optional bearer token required on `/mcp` and `/` |
 | `RUST_LOG`      | `info`                  | Log level (stderr) |
 
 Defaults target a local run/tests (real `/proc`, `/`). In a container, host
@@ -161,8 +168,8 @@ system-global.
   in `deploy/`.
 - Read-only mounts: the docker socket, `/proc`, and `/` (rootfs). The service
   never writes.
-- No end-user authentication — the perimeter is the network. Do not expose the
-  endpoint to untrusted networks.
+- Authentication is optional (`AUTH_TOKEN`, off by default). Regardless, keep the
+  endpoint on a private network — do not expose it to untrusted networks.
 - A Swarm service only observes the docker socket / procfs of the **node it runs
   on**; pin `placement` accordingly.
 - The image is a static musl binary on top of alpine; CI publishes it to GHCR.
